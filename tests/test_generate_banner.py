@@ -53,6 +53,7 @@ def test_banner_truncates_long_track_text_and_uses_track_accent_color():
     assert f">by {long_artist}</text>" not in svg
     assert "…" in svg
     assert 'textLength="850"' in svg
+    assert 'class="artist" textLength=' not in svg
     assert '.bar { fill: #12a4f0; }' in svg
 
 

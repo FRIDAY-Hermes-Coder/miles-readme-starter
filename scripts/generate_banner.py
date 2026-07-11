@@ -163,7 +163,7 @@ def safe_color(value: str) -> str:
 def banner(data: dict) -> str:
     is_playing = data["mode"].startswith("NOW PLAYING")
     title = escape(fit_text(data["title"], 27))
-    artist = escape(fit_text(data["artist"], 42))
+    artist = escape(fit_text(data["artist"], 30))
     mode = escape(data["mode"])
     cover = escape(data["cover"])
     bar_color = safe_color(data.get("bar_color", DEFAULT_BAR_COLOR))
@@ -185,6 +185,7 @@ def banner(data: dict) -> str:
   <desc id="desc">Miles Morales profile banner. {mode}: {title} by {artist}.</desc>
   <defs>
     <clipPath id="coverClip"><rect x="122" y="215" width="328" height="328" rx="18"/></clipPath>
+    <clipPath id="artistClip"><rect x="490" y="390" width="860" height="62"/></clipPath>
     <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
       <stop stop-color="#070b10" stop-opacity="0.97"/>
       <stop offset="1" stop-color="#0c1114" stop-opacity="0.93"/>
@@ -201,7 +202,7 @@ def banner(data: dict) -> str:
   <image href="{cover}" x="122" y="215" width="328" height="328" preserveAspectRatio="xMidYMid slice" clip-path="url(#coverClip)"/>
   <text x="490" y="304" class="label">Now Playing</text>
   <text x="490" y="381" class="track" textLength="850" lengthAdjust="spacingAndGlyphs">{title}</text>
-  <text x="490" y="432" class="artist" textLength="820" lengthAdjust="spacingAndGlyphs">by {artist}</text>
+  <text x="490" y="432" class="artist" clip-path="url(#artistClip)">by {artist}</text>
   {bars}
 </svg>\n'''
 
