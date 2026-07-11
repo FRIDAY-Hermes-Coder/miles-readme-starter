@@ -21,13 +21,10 @@ OUTPUT = ROOT / "assets" / "banner.svg"
 
 FALLBACK = {
     "title": "Sunflower",
-    "artist": "Post Malone & Swae Lee",
+    "artist": "Post Malone, Swae Lee",
     "mode": "SUNFLOWER · FALLBACK",
-    "lyrics": [
-        "Then you're left in the dust",
-        "Unless I stuck by ya",
-        "You're the sunflower",
-    ],
+    # Provided by the profile owner. These appear only in fallback mode.
+    "lyrics": ["CRASH AT MY PLACE", "BABY, I'M A WRECK"],
 }
 
 
@@ -80,55 +77,71 @@ def now_playing() -> dict | None:
     return {"title": title, "artist": artists, "mode": "NOW PLAYING · SPOTIFY"}
 
 
+def lyric_stickers(lines: list[str]) -> str:
+    """Return the kinetic subtitle treatment from the supplied design reference."""
+    positions = ((1070, 301, -7), (1048, 391, 5))
+    return "".join(
+        f'''<g transform="rotate({angle} {x} {y})">
+  <rect x="{x}" y="{y}" width="{min(405, 43 + len(line) * 23)}" height="67" fill="#ffad27"/>
+  <text x="{x + 17}" y="{y + 47}" class="sticker">{escape(line)}</text>
+</g>'''
+        for line, (x, y, angle) in zip(lines, positions)
+    )
+
+
 def banner(data: dict) -> str:
     is_playing = data["mode"].startswith("NOW PLAYING")
     title = escape(data["title"])
     artist = escape(data["artist"])
     mode = escape(data["mode"])
-    lyric_lines = data.get("lyrics", [])
+    lyrics = [] if is_playing else data.get("lyrics", [])
+    # Embed the user-supplied artwork so the SVG remains a single reliable asset
+    # when GitHub renders it through its image proxy.
+    hero_data = "data:image/png;base64," + base64.b64encode(
+        (ROOT / "assets" / "miles-hero.png").read_bytes()
+    ).decode("ascii")
 
-    # The supplied image is deliberately positioned to leave the left side clear.
-    lyric_svg = "".join(
-        f'<text x="112" y="{492 + (i * 45)}" class="lyric">{escape(line)}</text>'
-        for i, line in enumerate(lyric_lines)
-    )
-    bar_class = "bar active" if is_playing else "bar"
     bars = "".join(
-        f'<rect x="{117 + i * 26}" y="{388 - height}" width="12" height="{height}" rx="6" class="{bar_class}"/>'
-        for i, height in enumerate((24, 48, 34, 68, 42, 56, 27))
+        f'<rect x="{490 + i * 38}" y="{515 - height}" width="11" height="{height}" rx="5" class="bar"/>'
+        for i, height in enumerate((20, 45, 28, 61, 37, 54, 24, 49, 32, 58, 23))
     )
-    fallback_label = "FALLBACK LYRICS" if lyric_lines else "LIVE AUDIO SIGNAL"
+    stickers = lyric_stickers(lyrics)
+    subtitle = "Now Playing"
+    title_fill = "#f4ff00" if not is_playing else "#f8f8f8"
+
     return f'''<svg xmlns="http://www.w3.org/2000/svg" width="1983" height="793" viewBox="0 0 1983 793" role="img" aria-labelledby="title desc">
   <title id="title">What's Up Danger — {title}</title>
   <desc id="desc">Miles Morales profile banner. {mode}: {title} by {artist}.</desc>
   <defs>
-    <linearGradient id="shade" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#030303" stop-opacity="0.98"/>
-      <stop offset="0.49" stop-color="#090506" stop-opacity="0.90"/>
-      <stop offset="0.74" stop-color="#090506" stop-opacity="0.18"/>
-      <stop offset="1" stop-color="#090506" stop-opacity="0"/>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="20" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#070b10" stop-opacity="0.97"/>
+      <stop offset="1" stop-color="#0c1114" stop-opacity="0.93"/>
     </linearGradient>
-    <linearGradient id="line" x1="0" x2="1"><stop stop-color="#f20a24"/><stop offset="1" stop-color="#ff5364"/></linearGradient>
     <style>
-      .label {{ font: 600 22px Arial, sans-serif; letter-spacing: 5px; fill: #ff5364; }}
-      .track {{ font: 700 48px Arial, sans-serif; fill: #f8f8f8; }}
-      .artist {{ font: 400 26px Arial, sans-serif; fill: #afafb2; }}
-      .hint {{ font: 600 16px Arial, sans-serif; letter-spacing: 3px; fill: #747478; }}
-      .lyric {{ font: italic 700 31px Arial, sans-serif; fill: #ffffff; }}
-      .bar {{ fill: #7e141f; }} .bar.active {{ fill: #ff2439; }}
+      .label {{ font: 500 28px Arial, sans-serif; fill: #727277; }}
+      .track {{ font: 700 61px Arial, sans-serif; fill: {title_fill}; }}
+      .artist {{ font: 400 34px Arial, sans-serif; fill: #c9f6f6; }}
+      .bar {{ fill: #971018; }}
+      .sticker {{ font: 700 34px "Comic Sans MS", "Marker Felt", cursive; fill: #090909; }}
     </style>
   </defs>
-  <image href="miles-hero.png" x="0" y="0" width="1983" height="793" preserveAspectRatio="xMidYMid slice"/>
-  <rect width="1983" height="793" fill="url(#shade)"/>
-  <rect x="74" y="90" width="6" height="607" rx="3" fill="url(#line)"/>
-  <text x="112" y="132" class="label">{mode}</text>
-  <text x="112" y="215" class="track">{title}</text>
-  <text x="112" y="258" class="artist">{artist}</text>
-  <line x1="112" y1="300" x2="612" y2="300" stroke="#592128" stroke-width="2"/>
-  <text x="112" y="338" class="hint">{fallback_label}</text>
+  <image href="{hero_data}" x="0" y="0" width="1983" height="793" preserveAspectRatio="xMidYMid slice"/>
+  <rect x="64" y="164" width="1410" height="465" rx="35" fill="url(#card)" stroke="#202b34" stroke-width="2"/>
+  <rect x="122" y="215" width="328" height="328" rx="18" fill="#020306"/>
+  <g filter="url(#glow)">
+    <path d="M282 260 C208 284 193 389 218 480 C232 517 253 538 282 554 C311 538 332 517 346 480 C371 389 356 284 282 260Z" fill="#030304" stroke="#e60622" stroke-width="7"/>
+    <path d="M250 324 C215 349 213 405 237 433 C262 421 274 382 270 340Z" fill="#d5eaff" stroke="#f5152c" stroke-width="9"/>
+    <path d="M314 324 C349 349 351 405 327 433 C302 421 290 382 294 340Z" fill="#d5eaff" stroke="#f5152c" stroke-width="9"/>
+  </g>
+  <text x="490" y="304" class="label">{subtitle}</text>
+  <text x="490" y="381" class="track">{title}</text>
+  <text x="490" y="432" class="artist">by {artist}</text>
   {bars}
-  {lyric_svg}
-  <text x="112" y="658" class="hint">WHAT'S UP DANGER</text>
+  {stickers}
 </svg>\n'''
 
 
