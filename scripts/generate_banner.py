@@ -23,8 +23,6 @@ FALLBACK = {
     "title": "Sunflower",
     "artist": "Post Malone, Swae Lee",
     "mode": "SUNFLOWER · FALLBACK",
-    # Provided by the profile owner. These appear only in fallback mode.
-    "lyrics": ["CRASH AT MY PLACE", "BABY, I'M A WRECK"],
 }
 
 
@@ -77,24 +75,11 @@ def now_playing() -> dict | None:
     return {"title": title, "artist": artists, "mode": "NOW PLAYING · SPOTIFY"}
 
 
-def lyric_stickers(lines: list[str]) -> str:
-    """Return the kinetic subtitle treatment from the supplied design reference."""
-    positions = ((1070, 301, -7), (1048, 391, 5))
-    return "".join(
-        f'''<g transform="rotate({angle} {x} {y})">
-  <rect x="{x}" y="{y}" width="{min(405, 43 + len(line) * 23)}" height="67" fill="#ffad27"/>
-  <text x="{x + 17}" y="{y + 47}" class="sticker">{escape(line)}</text>
-</g>'''
-        for line, (x, y, angle) in zip(lines, positions)
-    )
-
-
 def banner(data: dict) -> str:
     is_playing = data["mode"].startswith("NOW PLAYING")
     title = escape(data["title"])
     artist = escape(data["artist"])
     mode = escape(data["mode"])
-    lyrics = [] if is_playing else data.get("lyrics", [])
     # Embed the user-supplied artwork so the SVG remains a single reliable asset
     # when GitHub renders it through its image proxy.
     hero_data = "data:image/png;base64," + base64.b64encode(
@@ -105,10 +90,8 @@ def banner(data: dict) -> str:
         f'<rect x="{490 + i * 38}" y="{515 - height}" width="11" height="{height}" rx="5" class="bar"/>'
         for i, height in enumerate((20, 45, 28, 61, 37, 54, 24, 49, 32, 58, 23))
     )
-    stickers = lyric_stickers(lyrics)
     subtitle = "Now Playing"
     title_fill = "#f4ff00" if not is_playing else "#f8f8f8"
-
     return f'''<svg xmlns="http://www.w3.org/2000/svg" width="1983" height="793" viewBox="0 0 1983 793" role="img" aria-labelledby="title desc">
   <title id="title">What's Up Danger — {title}</title>
   <desc id="desc">Miles Morales profile banner. {mode}: {title} by {artist}.</desc>
@@ -126,7 +109,6 @@ def banner(data: dict) -> str:
       .track {{ font: 700 61px Arial, sans-serif; fill: {title_fill}; }}
       .artist {{ font: 400 34px Arial, sans-serif; fill: #c9f6f6; }}
       .bar {{ fill: #971018; }}
-      .sticker {{ font: 700 34px "Comic Sans MS", "Marker Felt", cursive; fill: #090909; }}
     </style>
   </defs>
   <image href="{hero_data}" x="0" y="0" width="1983" height="793" preserveAspectRatio="xMidYMid slice"/>
@@ -141,7 +123,6 @@ def banner(data: dict) -> str:
   <text x="490" y="381" class="track">{title}</text>
   <text x="490" y="432" class="artist">by {artist}</text>
   {bars}
-  {stickers}
 </svg>\n'''
 
 

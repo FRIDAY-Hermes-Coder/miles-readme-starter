@@ -33,4 +33,4 @@ The workflow then attempts a refresh every 15 minutes. GitHub scheduling is not 
 
 - `assets/miles-hero.png` is the image supplied for this README. Replace it only with artwork you are allowed to publish.
 - `scripts/generate_banner.py` produces the one-piece `assets/banner.svg` used by the profile. It has no runtime dependencies.
-- Current playback shows a red music-bar signal; fallback uses the short Sunflower excerpt supplied for this design.
+- Current playback shows its track details and a red music-bar signal; fallback shows Sunflower in the same card.
