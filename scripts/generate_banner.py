@@ -10,16 +10,22 @@ import base64
 import json
 import mimetypes
 import os
+import re
 import sys
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections import Counter
+from io import BytesIO
 from pathlib import Path
 from xml.sax.saxutils import escape
+
+from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "assets" / "banner.svg"
 FALLBACK_COVER = ROOT / "assets" / "sunflower-cover.jpg"
+DEFAULT_BAR_COLOR = "#971018"
 
 FALLBACK = {
     "title": "Sunflower",
@@ -40,32 +46,64 @@ def request_json(url: str, *, data: bytes | None = None, headers: dict[str, str]
         raise
 
 
-def request_image_data_uri(url: str) -> str:
-    """Fetch Spotify cover artwork and make it safe to embed in a single SVG."""
-    with urllib.request.urlopen(url, timeout=30) as response:
-        image = response.read()
-        content_type = response.headers.get_content_type()
+def dominant_accent(image: bytes) -> str:
+    """Select a readable, saturated dominant color from an album cover."""
+    with Image.open(BytesIO(image)) as source:
+        # Quantization prevents JPEG compression noise from defeating color counts.
+        palette_image = source.convert("RGB").resize((64, 64)).quantize(colors=16)
+        palette = palette_image.getpalette()
+        colors = palette_image.getcolors() or []
+    best: tuple[float, tuple[int, int, int]] | None = None
+    for count, index in colors:
+        red, green, blue = palette[index * 3 : index * 3 + 3]
+        maximum, minimum = max(red, green, blue), min(red, green, blue)
+        saturation = (maximum - minimum) / maximum if maximum else 0
+        brightness = (red * 0.299 + green * 0.587 + blue * 0.114) / 255
+        if saturation < 0.18 or not 0.10 <= brightness <= 0.90:
+            continue
+        score = count * (0.7 + saturation)
+        if best is None or score > best[0]:
+            best = (score, (red, green, blue))
+    if best is None:
+        _, index = max(colors, key=lambda entry: entry[0])
+        red, green, blue = palette[index * 3 : index * 3 + 3]
+        # A grayscale/dark sleeve still gets its own readable visualizer shade.
+        peak = max(red, green, blue)
+        if peak < 96:
+            scale = 96 / max(peak, 1)
+            red, green, blue = (min(255, round(channel * scale)) for channel in (red, green, blue))
+        return f"#{red:02x}{green:02x}{blue:02x}"
+    red, green, blue = best[1]
+    return f"#{red:02x}{green:02x}{blue:02x}"
+
+
+def image_asset(image: bytes, content_type: str) -> tuple[str, str]:
     if not content_type.startswith("image/") or not image:
         raise ValueError("Spotify returned an invalid album image")
-    return f"data:{content_type};base64," + base64.b64encode(image).decode("ascii")
+    uri = f"data:{content_type};base64," + base64.b64encode(image).decode("ascii")
+    return uri, dominant_accent(image)
 
 
-def local_image_data_uri(path: Path) -> str:
+def request_image_asset(url: str) -> tuple[str, str]:
+    """Fetch Spotify cover artwork and prepare it for a single SVG image."""
+    with urllib.request.urlopen(url, timeout=30) as response:
+        return image_asset(response.read(), response.headers.get_content_type())
+
+
+def local_image_asset(path: Path) -> tuple[str, str]:
     content_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
-    if not content_type.startswith("image/"):
-        raise ValueError(f"Unsupported cover type: {content_type}")
-    return f"data:{content_type};base64," + base64.b64encode(path.read_bytes()).decode("ascii")
+    return image_asset(path.read_bytes(), content_type)
 
 
-def cover_data_uri(data: dict) -> str:
-    """Use live album art when available; otherwise use the original Sunflower cover."""
+def cover_asset(data: dict) -> tuple[str, str]:
+    """Use live artwork and accent color when available; otherwise use Sunflower."""
     cover_url = data.get("cover_url")
     if cover_url:
         try:
-            return request_image_data_uri(cover_url)
+            return request_image_asset(cover_url)
         except (urllib.error.URLError, TimeoutError, ValueError) as error:
             print(f"Album cover fetch failed; using Sunflower cover: {error}", file=sys.stderr)
-    return local_image_data_uri(FALLBACK_COVER)
+    return local_image_asset(FALLBACK_COVER)
 
 
 def now_playing() -> dict | None:
@@ -112,12 +150,23 @@ def now_playing() -> dict | None:
     }
 
 
+def fit_text(value: str, limit: int) -> str:
+    """Reserve a fixed visual region without letting long metadata spill out."""
+    value = " ".join(value.split())
+    return value if len(value) <= limit else value[: limit - 1].rstrip() + "…"
+
+
+def safe_color(value: str) -> str:
+    return value if re.fullmatch(r"#[0-9a-fA-F]{6}", value) else DEFAULT_BAR_COLOR
+
+
 def banner(data: dict) -> str:
     is_playing = data["mode"].startswith("NOW PLAYING")
-    title = escape(data["title"])
-    artist = escape(data["artist"])
+    title = escape(fit_text(data["title"], 27))
+    artist = escape(fit_text(data["artist"], 42))
     mode = escape(data["mode"])
     cover = escape(data["cover"])
+    bar_color = safe_color(data.get("bar_color", DEFAULT_BAR_COLOR))
     hero_data = "data:image/png;base64," + base64.b64encode(
         (ROOT / "assets" / "miles-hero.png").read_bytes()
     ).decode("ascii")
@@ -144,15 +193,15 @@ def banner(data: dict) -> str:
       .label {{ font: 500 28px Arial, sans-serif; fill: #727277; }}
       .track {{ font: 700 61px Arial, sans-serif; fill: {title_fill}; }}
       .artist {{ font: 400 34px Arial, sans-serif; fill: #c9f6f6; }}
-      .bar {{ fill: #971018; }}
+      .bar {{ fill: {bar_color}; }}
     </style>
   </defs>
   <image href="{hero_data}" x="0" y="0" width="1983" height="793" preserveAspectRatio="xMidYMid slice"/>
   <rect x="64" y="164" width="1410" height="465" rx="35" fill="url(#card)" stroke="#202b34" stroke-width="2"/>
   <image href="{cover}" x="122" y="215" width="328" height="328" preserveAspectRatio="xMidYMid slice" clip-path="url(#coverClip)"/>
   <text x="490" y="304" class="label">Now Playing</text>
-  <text x="490" y="381" class="track">{title}</text>
-  <text x="490" y="432" class="artist">by {artist}</text>
+  <text x="490" y="381" class="track" textLength="850" lengthAdjust="spacingAndGlyphs">{title}</text>
+  <text x="490" y="432" class="artist" textLength="820" lengthAdjust="spacingAndGlyphs">by {artist}</text>
   {bars}
 </svg>\n'''
 
@@ -160,11 +209,11 @@ def banner(data: dict) -> str:
 def main() -> None:
     try:
         data = now_playing() or FALLBACK.copy()
-        data["cover"] = cover_data_uri(data)
+        data["cover"], data["bar_color"] = cover_asset(data)
     except (urllib.error.URLError, TimeoutError, ValueError) as error:
         print(f"Spotify request failed; using fallback: {error}", file=sys.stderr)
         data = FALLBACK.copy()
-        data["cover"] = local_image_data_uri(FALLBACK_COVER)
+        data["cover"], data["bar_color"] = local_image_asset(FALLBACK_COVER)
     OUTPUT.write_text(banner(data), encoding="utf-8")
     print(f"Wrote {OUTPUT.relative_to(ROOT)} — {data['mode']}")
 

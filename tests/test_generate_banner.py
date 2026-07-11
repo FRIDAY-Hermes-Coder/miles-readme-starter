@@ -34,6 +34,28 @@ def test_banner_uses_the_track_cover_instead_of_the_generic_mask():
     assert 'repeatCount="indefinite"' in svg
 
 
+def test_banner_truncates_long_track_text_and_uses_track_accent_color():
+    module = load_module()
+    long_title = "An Extremely Long Track Title That Must Never Escape The Music Card"
+    long_artist = "A Very Long List Of Artists That Must Remain Inside The Music Card"
+
+    svg = module.banner(
+        {
+            "title": long_title,
+            "artist": long_artist,
+            "mode": "NOW PLAYING · SPOTIFY",
+            "cover": "data:image/jpeg;base64,dGVzdA==",
+            "bar_color": "#12a4f0",
+        }
+    )
+
+    assert f">{long_title}</text>" not in svg
+    assert f">by {long_artist}</text>" not in svg
+    assert "…" in svg
+    assert 'textLength="850"' in svg
+    assert '.bar { fill: #12a4f0; }' in svg
+
+
 def test_now_playing_returns_spotify_album_art_url(monkeypatch):
     module = load_module()
     monkeypatch.setenv("SPOTIFY_CLIENT_ID", "id")
