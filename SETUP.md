@@ -17,7 +17,7 @@ Create `Mitanshp5/Mitanshp5` as a new, empty public repository first. If you wan
 
 ## 2. Enable actual Spotify Now Playing
 
-Without Spotify secrets, the image always renders the **Sunflower** fallback and the supplied lyric excerpt. With secrets, it shows your current Spotify track only while Spotify reports active playback; otherwise it returns to Sunflower.
+Without Spotify secrets, the image always renders the **Sunflower** fallback with the official album cover. With secrets, it shows your current Spotify track and its album cover only while Spotify reports active playback; otherwise it returns to Sunflower.
 
 1. Create a Spotify app in the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard).
 2. Obtain an OAuth refresh token with the `user-read-currently-playing` scope. The upstream reference project describes a local authorization flow, but do not commit credentials or tokens.

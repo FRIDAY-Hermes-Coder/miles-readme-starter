@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
-"""Generate the profile banner from Spotify playback, with a Sunflower fallback.
+"""Generate a profile banner from Spotify playback, with a Sunflower fallback.
 
-No third-party dependencies. When Spotify secrets are absent, it deterministically
-writes the fallback banner so the repository always has a usable image.
+The SVG is self-contained: both the banner art and the current album cover are
+embedded so GitHub's image proxy can render the same image reliably.
 """
 from __future__ import annotations
 
 import base64
 import json
+import mimetypes
 import os
 import sys
 import urllib.error
@@ -18,6 +19,7 @@ from xml.sax.saxutils import escape
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "assets" / "banner.svg"
+FALLBACK_COVER = ROOT / "assets" / "sunflower-cover.jpg"
 
 FALLBACK = {
     "title": "Sunflower",
@@ -36,6 +38,34 @@ def request_json(url: str, *, data: bytes | None = None, headers: dict[str, str]
         if error.code in (204, 401, 403, 404):
             return error.code, None
         raise
+
+
+def request_image_data_uri(url: str) -> str:
+    """Fetch Spotify cover artwork and make it safe to embed in a single SVG."""
+    with urllib.request.urlopen(url, timeout=30) as response:
+        image = response.read()
+        content_type = response.headers.get_content_type()
+    if not content_type.startswith("image/") or not image:
+        raise ValueError("Spotify returned an invalid album image")
+    return f"data:{content_type};base64," + base64.b64encode(image).decode("ascii")
+
+
+def local_image_data_uri(path: Path) -> str:
+    content_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+    if not content_type.startswith("image/"):
+        raise ValueError(f"Unsupported cover type: {content_type}")
+    return f"data:{content_type};base64," + base64.b64encode(path.read_bytes()).decode("ascii")
+
+
+def cover_data_uri(data: dict) -> str:
+    """Use live album art when available; otherwise use the original Sunflower cover."""
+    cover_url = data.get("cover_url")
+    if cover_url:
+        try:
+            return request_image_data_uri(cover_url)
+        except (urllib.error.URLError, TimeoutError, ValueError) as error:
+            print(f"Album cover fetch failed; using Sunflower cover: {error}", file=sys.stderr)
+    return local_image_data_uri(FALLBACK_COVER)
 
 
 def now_playing() -> dict | None:
@@ -70,9 +100,16 @@ def now_playing() -> dict | None:
     item = playback.get("item") or {}
     title = item.get("name")
     artists = ", ".join(a.get("name", "") for a in item.get("artists", []))
+    images = ((item.get("album") or {}).get("images") or [])
+    cover_url = images[0].get("url") if images else None
     if not title or not artists:
         return None
-    return {"title": title, "artist": artists, "mode": "NOW PLAYING · SPOTIFY"}
+    return {
+        "title": title,
+        "artist": artists,
+        "mode": "NOW PLAYING · SPOTIFY",
+        "cover_url": cover_url,
+    }
 
 
 def banner(data: dict) -> str:
@@ -80,8 +117,7 @@ def banner(data: dict) -> str:
     title = escape(data["title"])
     artist = escape(data["artist"])
     mode = escape(data["mode"])
-    # Embed the user-supplied artwork so the SVG remains a single reliable asset
-    # when GitHub renders it through its image proxy.
+    cover = escape(data["cover"])
     hero_data = "data:image/png;base64," + base64.b64encode(
         (ROOT / "assets" / "miles-hero.png").read_bytes()
     ).decode("ascii")
@@ -90,16 +126,12 @@ def banner(data: dict) -> str:
         f'<rect x="{490 + i * 38}" y="{515 - height}" width="11" height="{height}" rx="5" class="bar"/>'
         for i, height in enumerate((20, 45, 28, 61, 37, 54, 24, 49, 32, 58, 23))
     )
-    subtitle = "Now Playing"
     title_fill = "#f4ff00" if not is_playing else "#f8f8f8"
     return f'''<svg xmlns="http://www.w3.org/2000/svg" width="1983" height="793" viewBox="0 0 1983 793" role="img" aria-labelledby="title desc">
   <title id="title">What's Up Danger — {title}</title>
   <desc id="desc">Miles Morales profile banner. {mode}: {title} by {artist}.</desc>
   <defs>
-    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
-      <feGaussianBlur stdDeviation="20" result="blur"/>
-      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
+    <clipPath id="coverClip"><rect x="122" y="215" width="328" height="328" rx="18"/></clipPath>
     <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
       <stop stop-color="#070b10" stop-opacity="0.97"/>
       <stop offset="1" stop-color="#0c1114" stop-opacity="0.93"/>
@@ -113,13 +145,8 @@ def banner(data: dict) -> str:
   </defs>
   <image href="{hero_data}" x="0" y="0" width="1983" height="793" preserveAspectRatio="xMidYMid slice"/>
   <rect x="64" y="164" width="1410" height="465" rx="35" fill="url(#card)" stroke="#202b34" stroke-width="2"/>
-  <rect x="122" y="215" width="328" height="328" rx="18" fill="#020306"/>
-  <g filter="url(#glow)">
-    <path d="M282 260 C208 284 193 389 218 480 C232 517 253 538 282 554 C311 538 332 517 346 480 C371 389 356 284 282 260Z" fill="#030304" stroke="#e60622" stroke-width="7"/>
-    <path d="M250 324 C215 349 213 405 237 433 C262 421 274 382 270 340Z" fill="#d5eaff" stroke="#f5152c" stroke-width="9"/>
-    <path d="M314 324 C349 349 351 405 327 433 C302 421 290 382 294 340Z" fill="#d5eaff" stroke="#f5152c" stroke-width="9"/>
-  </g>
-  <text x="490" y="304" class="label">{subtitle}</text>
+  <image href="{cover}" x="122" y="215" width="328" height="328" preserveAspectRatio="xMidYMid slice" clip-path="url(#coverClip)"/>
+  <text x="490" y="304" class="label">Now Playing</text>
   <text x="490" y="381" class="track">{title}</text>
   <text x="490" y="432" class="artist">by {artist}</text>
   {bars}
@@ -128,10 +155,12 @@ def banner(data: dict) -> str:
 
 def main() -> None:
     try:
-        data = now_playing() or FALLBACK
+        data = now_playing() or FALLBACK.copy()
+        data["cover"] = cover_data_uri(data)
     except (urllib.error.URLError, TimeoutError, ValueError) as error:
         print(f"Spotify request failed; using fallback: {error}", file=sys.stderr)
-        data = FALLBACK
+        data = FALLBACK.copy()
+        data["cover"] = local_image_data_uri(FALLBACK_COVER)
     OUTPUT.write_text(banner(data), encoding="utf-8")
     print(f"Wrote {OUTPUT.relative_to(ROOT)} — {data['mode']}")
 
