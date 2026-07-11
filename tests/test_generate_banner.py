@@ -30,6 +30,8 @@ def test_banner_uses_the_track_cover_instead_of_the_generic_mask():
     assert track_cover in svg
     assert 'x="122" y="215" width="328" height="328"' in svg
     assert 'M282 260 C208 284' not in svg
+    assert '<animate attributeName="height"' in svg
+    assert 'repeatCount="indefinite"' in svg
 
 
 def test_now_playing_returns_spotify_album_art_url(monkeypatch):

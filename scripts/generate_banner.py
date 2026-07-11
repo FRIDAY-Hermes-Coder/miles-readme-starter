@@ -122,9 +122,13 @@ def banner(data: dict) -> str:
         (ROOT / "assets" / "miles-hero.png").read_bytes()
     ).decode("ascii")
 
+    bar_heights = (20, 45, 28, 61, 37, 54, 24, 49, 32, 58, 23)
     bars = "".join(
-        f'<rect x="{490 + i * 38}" y="{515 - height}" width="11" height="{height}" rx="5" class="bar"/>'
-        for i, height in enumerate((20, 45, 28, 61, 37, 54, 24, 49, 32, 58, 23))
+        f'''<rect x="{490 + i * 38}" y="{515 - height}" width="11" height="{height}" rx="5" class="bar">
+    <animate attributeName="height" values="{height};{min(70, height + 14)};{max(12, height // 2)};{height}" dur="0.82s" begin="{i * 0.09}s" repeatCount="indefinite"/>
+    <animate attributeName="y" values="{515 - height};{515 - min(70, height + 14)};{515 - max(12, height // 2)};{515 - height}" dur="0.82s" begin="{i * 0.09}s" repeatCount="indefinite"/>
+  </rect>'''
+        for i, height in enumerate(bar_heights)
     )
     title_fill = "#f4ff00" if not is_playing else "#f8f8f8"
     return f'''<svg xmlns="http://www.w3.org/2000/svg" width="1983" height="793" viewBox="0 0 1983 793" role="img" aria-labelledby="title desc">
