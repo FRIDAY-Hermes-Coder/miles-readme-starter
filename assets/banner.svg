@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1983" height="793" viewBox="0 0 1983 793" role="img" aria-labelledby="title desc">
+  <title id="title">What's Up Danger — Sunflower</title>
+  <desc id="desc">Miles Morales profile banner. SUNFLOWER · FALLBACK: Sunflower by Post Malone &amp; Swae Lee.</desc>
+  <defs>
+    <linearGradient id="shade" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#030303" stop-opacity="0.98"/>
+      <stop offset="0.49" stop-color="#090506" stop-opacity="0.90"/>
+      <stop offset="0.74" stop-color="#090506" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#090506" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="line" x1="0" x2="1"><stop stop-color="#f20a24"/><stop offset="1" stop-color="#ff5364"/></linearGradient>
+    <style>
+      .label { font: 600 22px Arial, sans-serif; letter-spacing: 5px; fill: #ff5364; }
+      .track { font: 700 48px Arial, sans-serif; fill: #f8f8f8; }
+      .artist { font: 400 26px Arial, sans-serif; fill: #afafb2; }
+      .hint { font: 600 16px Arial, sans-serif; letter-spacing: 3px; fill: #747478; }
+      .lyric { font: italic 700 31px Arial, sans-serif; fill: #ffffff; }
+      .bar { fill: #7e141f; } .bar.active { fill: #ff2439; }
+    </style>
+  </defs>
+  <image href="miles-hero.png" x="0" y="0" width="1983" height="793" preserveAspectRatio="xMidYMid slice"/>
+  <rect width="1983" height="793" fill="url(#shade)"/>
+  <rect x="74" y="90" width="6" height="607" rx="3" fill="url(#line)"/>
+  <text x="112" y="132" class="label">SUNFLOWER · FALLBACK</text>
+  <text x="112" y="215" class="track">Sunflower</text>
+  <text x="112" y="258" class="artist">Post Malone &amp; Swae Lee</text>
+  <line x1="112" y1="300" x2="612" y2="300" stroke="#592128" stroke-width="2"/>
+  <text x="112" y="338" class="hint">FALLBACK LYRICS</text>
+  <rect x="117" y="364" width="12" height="24" rx="6" class="bar"/><rect x="143" y="340" width="12" height="48" rx="6" class="bar"/><rect x="169" y="354" width="12" height="34" rx="6" class="bar"/><rect x="195" y="320" width="12" height="68" rx="6" class="bar"/><rect x="221" y="346" width="12" height="42" rx="6" class="bar"/><rect x="247" y="332" width="12" height="56" rx="6" class="bar"/><rect x="273" y="361" width="12" height="27" rx="6" class="bar"/>
+  <text x="112" y="492" class="lyric">Then you're left in the dust</text><text x="112" y="537" class="lyric">Unless I stuck by ya</text><text x="112" y="582" class="lyric">You're the sunflower</text>
+  <text x="112" y="658" class="hint">WHAT'S UP DANGER</text>
+</svg>
